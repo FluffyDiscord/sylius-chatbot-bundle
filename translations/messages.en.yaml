@@ -1,0 +1,43 @@
+fluffydiscord_sylius_chatbot:
+    error:
+        unauthorized: 'Missing or invalid API secret.'
+        forbidden_user_agent: 'This endpoint only serves the chatbot backend.'
+        tool_not_found: 'The requested tool does not exist.'
+        source_not_found: 'The requested data source does not exist.'
+        validation_failed: 'The request is invalid.'
+        invalid_cursor: 'The pagination cursor is invalid.'
+        invalid_locale: 'The requested locale is not served.'
+        invalid_channel: 'The requested channel does not exist.'
+        bad_request: 'The request could not be processed.'
+        not_found: 'The requested resource does not exist.'
+        method_not_allowed: 'The HTTP method is not allowed for this endpoint.'
+        internal_error: 'An unexpected error occurred.'
+    tool:
+        failure: 'The requested information could not be retrieved right now. Please try again later.'
+        get_order_status:
+            description: 'Looks up the current status of a customer order by its number and the customer e-mail address.'
+            form:
+                title: 'Order status'
+                order_number: 'Order number'
+                email: 'E-mail address'
+                submit: 'Check status'
+            not_found: 'Order %number% was not found for the given e-mail address. Please check the order number and the e-mail used at checkout.'
+            summary: 'Order %number%: status %state%, payment %paymentState%, shipping %shippingState%, items %items%, total %total%.%tracking%'
+            tracking: ' Tracking: %codes%.'
+        get_product_availability:
+            description: 'Returns current price, currency and stock availability for up to 20 products identified by their product codes.'
+            unknown: 'Product with code %code% was not found.'
+            line_in_stock: '%code% — %name%: %price% %currency%, in stock.'
+            line_out_of_stock: '%code% — %name%: %price% %currency%, currently out of stock.'
+    source:
+        products:
+            description: 'Enabled products of the shop channel, including description, attributes, price and availability.'
+        categories:
+            description: 'Enabled product categories of the shop channel, including the category path and description.'
+        cms_pages:
+            description: 'Published CMS pages of the shop.'
+        bitbag_cms_pages:
+            description: 'Published CMS pages of the shop (BitBag).'
+    attribute_value:
+        'yes': 'yes'
+        'no': 'no'
