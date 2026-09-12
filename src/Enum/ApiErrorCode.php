@@ -7,7 +7,6 @@ namespace FluffyDiscord\SyliusChatbotBundle\Enum;
 enum ApiErrorCode: string
 {
     case Unauthorized = 'unauthorized';
-    case ForbiddenUserAgent = 'forbidden_user_agent';
     case ToolNotFound = 'tool_not_found';
     case SourceNotFound = 'source_not_found';
     case ValidationFailed = 'validation_failed';

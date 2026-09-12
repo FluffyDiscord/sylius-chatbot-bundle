@@ -6,20 +6,21 @@ namespace FluffyDiscord\SyliusChatbotBundle\Product;
 
 use FluffyDiscord\SyliusChatbotBundle\Contract\ProductViewFactoryInterface;
 use FluffyDiscord\SyliusChatbotBundle\DTO\ProductItem;
-use FluffyDiscord\SyliusChatbotBundle\Routing\LocalizedUrlGenerator;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Psr\Log\LoggerInterface;
 use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
 use Sylius\Component\Inventory\Checker\AvailabilityCheckerInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RouterInterface;
 
 readonly class ProductViewFactory implements ProductViewFactoryInterface
 {
     public function __construct(
         private VariantPriceResolver         $variantPriceResolver,
         private AvailabilityCheckerInterface $availabilityChecker,
-        private LocalizedUrlGenerator        $localizedUrlGenerator,
+        private RouterInterface              $router,
         private CacheManager                 $imageCacheManager,
         private LoggerInterface              $logger,
     ) {
@@ -59,10 +60,10 @@ readonly class ProductViewFactory implements ProductViewFactoryInterface
             (string) $variant->getCode(),
             (string) $product->getCode(),
             $this->buildName($product, $variant, $locale),
-            $this->localizedUrlGenerator->generateAbsoluteUrl(
+            $this->router->generate(
                 'sylius_shop_product_show',
-                ['slug' => $slug],
-                $locale,
+                ['slug' => $slug, '_locale' => $locale],
+                UrlGeneratorInterface::ABSOLUTE_URL,
             ),
             $priceMinor,
             (string) $baseCurrency->getCode(),

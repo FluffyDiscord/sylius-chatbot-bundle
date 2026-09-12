@@ -24,7 +24,6 @@ return function (ContainerConfigurator $configurator): void {
             __DIR__ . '/../src/Tool/DTO',
             __DIR__ . '/../src/Security/ChatbotBackendUser.php',
             __DIR__ . '/../src/DataSource/CmsPagesDataSource.php',
-            __DIR__ . '/../src/DataSource/BitBagCmsPagesDataSource.php',
             __DIR__ . '/../src/FluffyDiscordSyliusChatbotBundle.php',
         ]);
 

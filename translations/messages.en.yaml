@@ -1,7 +1,6 @@
 fluffydiscord_sylius_chatbot:
     error:
         unauthorized: 'Missing or invalid API secret.'
-        forbidden_user_agent: 'This endpoint only serves the chatbot backend.'
         tool_not_found: 'The requested tool does not exist.'
         source_not_found: 'The requested data source does not exist.'
         validation_failed: 'The request is invalid.'
@@ -36,8 +35,6 @@ fluffydiscord_sylius_chatbot:
             description: 'Enabled product categories of the shop channel, including the category path and description.'
         cms_pages:
             description: 'Published CMS pages of the shop.'
-        bitbag_cms_pages:
-            description: 'Published CMS pages of the shop (BitBag).'
     attribute_value:
         'yes': 'yes'
         'no': 'no'

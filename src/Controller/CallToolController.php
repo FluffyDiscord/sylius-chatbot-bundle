@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace FluffyDiscord\SyliusChatbotBundle\Controller;
 
+use FluffyDiscord\SyliusChatbotBundle\Channel\ChannelResolver;
 use FluffyDiscord\SyliusChatbotBundle\DTO\ContentItem;
+use FluffyDiscord\SyliusChatbotBundle\DTO\ToolCallContext;
 use FluffyDiscord\SyliusChatbotBundle\DTO\ToolCallRequest;
 use FluffyDiscord\SyliusChatbotBundle\DTO\ToolResult;
 use FluffyDiscord\SyliusChatbotBundle\DTO\Violation;
 use FluffyDiscord\SyliusChatbotBundle\Exception\ArgumentsValidationException;
 use FluffyDiscord\SyliusChatbotBundle\Exception\ToolNotFoundException;
+use FluffyDiscord\SyliusChatbotBundle\Locale\ShopLocaleResolver;
 use FluffyDiscord\SyliusChatbotBundle\Registry\ToolRegistry;
 use Psr\Log\LoggerInterface;
+use Sylius\Component\Locale\Context\LocaleContextInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -31,6 +35,9 @@ class CallToolController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly TranslatorInterface $translator,
         private readonly LoggerInterface $logger,
+        private readonly ChannelResolver $channelResolver,
+        private readonly LocaleContextInterface $localeContext,
+        private readonly ShopLocaleResolver $localeResolver,
     ) {
     }
 
@@ -40,6 +47,9 @@ class CallToolController extends AbstractController
         if ($tool === null) {
             throw new ToolNotFoundException($name);
         }
+
+        $this->channelResolver->setOverrideCode($payload->context->channelCode);
+        $context = $this->resolveContextLocale($payload->context);
 
         $arguments = $this->denormalizeArguments($payload->arguments, $tool->getArgumentsClass());
 
@@ -52,7 +62,7 @@ class CallToolController extends AbstractController
         }
 
         try {
-            $result = $tool->execute($arguments, $payload->context);
+            $result = $tool->execute($arguments, $context);
         } catch (\Throwable $exception) {
             $this->logger->error('Chatbot tool execution failed.', [
                 'tool' => $name,
@@ -63,7 +73,7 @@ class CallToolController extends AbstractController
                     'fluffydiscord_sylius_chatbot.tool.failure',
                     [],
                     'messages',
-                    $payload->context->locale,
+                    $context->locale,
                 ))],
                 [],
                 true,
@@ -71,6 +81,13 @@ class CallToolController extends AbstractController
         }
 
         return $this->json($result->jsonSerialize());
+    }
+
+    private function resolveContextLocale(ToolCallContext $context): ToolCallContext
+    {
+        $servedLocale = $this->localeResolver->resolveForChannel($context->locale);
+
+        return $context->withLocale($servedLocale ?? $this->localeContext->getLocaleCode());
     }
 
     private function denormalizeArguments(array $arguments, string $argumentsClass): object

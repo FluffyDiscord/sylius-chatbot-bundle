@@ -13,7 +13,7 @@ readonly class SourceQuery
      */
     public function __construct(
         #[Assert\NotBlank]
-        #[Assert\Regex('/^[a-z]{2,3}(_[A-Z]{2})?$/')]
+        #[Assert\Locale]
         public string $locale = '',
 
         #[Assert\Length(max: 255)]
@@ -31,6 +31,11 @@ readonly class SourceQuery
         ])]
         public ?array $ids = null,
     ) {
+    }
+
+    public function withLocale(string $locale): self
+    {
+        return new self($locale, $this->channel, $this->cursor, $this->ids);
     }
 
     public function hasIds(): bool

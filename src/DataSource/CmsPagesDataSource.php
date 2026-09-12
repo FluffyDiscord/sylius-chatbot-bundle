@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace FluffyDiscord\SyliusChatbotBundle\DataSource;
 
-use Doctrine\Common\Collections\Criteria;
+use Doctrine\Common\Collections\Order;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use MonsieurBiz\SyliusCmsPagePlugin\Entity\PageInterface;
@@ -17,9 +17,10 @@ use FluffyDiscord\SyliusChatbotBundle\DTO\SourceDefinition;
 use FluffyDiscord\SyliusChatbotBundle\DTO\SourceDocument;
 use FluffyDiscord\SyliusChatbotBundle\DTO\SourceQuery;
 use FluffyDiscord\SyliusChatbotBundle\Enum\DocumentKind;
-use FluffyDiscord\SyliusChatbotBundle\Routing\LocalizedUrlGenerator;
 use FluffyDiscord\SyliusChatbotBundle\Text\HtmlToText;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RouterInterface;
 
 readonly class CmsPagesDataSource implements ChatbotDataSourceInterface
 {
@@ -28,7 +29,7 @@ readonly class CmsPagesDataSource implements ChatbotDataSourceInterface
         private ChannelResolver $channelResolver,
         private CursorCodec $cursorCodec,
         private HtmlToText $htmlToText,
-        private LocalizedUrlGenerator $localizedUrlGenerator,
+        private RouterInterface $router,
         private LoggerInterface $logger,
     ) {
     }
@@ -65,7 +66,7 @@ readonly class CmsPagesDataSource implements ChatbotDataSourceInterface
             ->setParameter('channel', $channel)
             ->setParameter('enabled', true)
             ->setParameter('now', new \DateTimeImmutable())
-            ->orderBy('page.id', Criteria::ASC);
+            ->orderBy('page.id', Order::Ascending->value);
 
         if ($isIdLookup) {
             $queryBuilder->andWhere('page.code IN (:codes)')->setParameter('codes', $query->ids);
@@ -125,10 +126,10 @@ readonly class CmsPagesDataSource implements ChatbotDataSourceInterface
             return null;
         }
 
-        $url = $this->localizedUrlGenerator->generateAbsoluteUrl(
+        $url = $this->router->generate(
             'monsieurbiz_cms_page_show',
             ['slug' => $slug],
-            $locale,
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
         $content = $translation->getContent();

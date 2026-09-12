@@ -6,8 +6,8 @@ namespace FluffyDiscord\SyliusChatbotBundle\Controller;
 
 use FluffyDiscord\SyliusChatbotBundle\Channel\ChannelResolver;
 use FluffyDiscord\SyliusChatbotBundle\DTO\SourceQuery;
-use FluffyDiscord\SyliusChatbotBundle\Exception\InvalidLocaleException;
 use FluffyDiscord\SyliusChatbotBundle\Exception\SourceNotFoundException;
+use FluffyDiscord\SyliusChatbotBundle\Locale\ShopLocaleResolver;
 use FluffyDiscord\SyliusChatbotBundle\Registry\DataSourceRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,6 +19,7 @@ class ReadSourceController extends AbstractController
     public function __construct(
         private readonly DataSourceRegistry $dataSourceRegistry,
         private readonly ChannelResolver $channelResolver,
+        private readonly ShopLocaleResolver $localeResolver,
     ) {
     }
 
@@ -33,27 +34,11 @@ class ReadSourceController extends AbstractController
 
         $this->channelResolver->setOverrideCode($query->channel);
 
-        $locales = $source->getDefinition()->locales ?? $this->resolveChannelLocales();
-        $isServedLocale = in_array($query->locale, $locales, true);
-        if (!$isServedLocale) {
-            throw new InvalidLocaleException($query->locale);
-        }
+        $servedLocales = $source->getDefinition()->locales ?? $this->localeResolver->getChannelLocales();
+        $servedLocale = $this->localeResolver->resolveServedLocaleOrFail($query->locale, $servedLocales);
 
-        $page = $source->getDocuments($query);
+        $page = $source->getDocuments($query->withLocale($servedLocale));
 
         return $this->json($page->jsonSerialize());
-    }
-
-    private function resolveChannelLocales(): array
-    {
-        $locales = [];
-        foreach ($this->channelResolver->getChannel()->getLocales() as $channelLocale) {
-            $localeCode = $channelLocale->getCode();
-            if ($localeCode !== null) {
-                $locales[] = $localeCode;
-            }
-        }
-
-        return $locales;
     }
 }

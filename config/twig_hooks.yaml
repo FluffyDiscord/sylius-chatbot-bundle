@@ -1,0 +1,6 @@
+sylius_twig_hooks:
+    hooks:
+        'sylius_shop.base#javascripts':
+            fluffydiscord_chatbot_widget:
+                template: '@FluffyDiscordSyliusChatbot/shop/widget.html.twig'
+                priority: 0

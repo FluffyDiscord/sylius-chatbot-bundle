@@ -11,7 +11,7 @@ class InvalidLocaleException extends ChatbotApiException
 {
     public function __construct(string $locale)
     {
-        parent::__construct(sprintf('Locale "%s" is not served by this source.', $locale));
+        parent::__construct(sprintf('Locale "%s" is not served.', $locale));
     }
 
     public function getErrorCode(): ApiErrorCode

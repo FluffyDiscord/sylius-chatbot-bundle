@@ -1,25 +1,19 @@
 # FluffyDiscord Sylius Chatbot Bundle
 
-Exposes a small authenticated HTTP tool server (`/chatbot/v1`) for an AI chatbot backend and embeds the chat widget into the Sylius shop layout.
+Exposes a small authenticated HTTP tool server (`/chatbot/v1`) for an external AI chatbot backend and embeds the chat widget into the Sylius shop layout.
 
-Requires PHP `^8.2` and Sylius `^1.14 || ^2.2 || ^2.3`.
+Requires PHP `^8.2` and Sylius `^2.2 || ^2.3`.
 
 ## Requirements
 
 | Package | Constraint |
 |---|---|
 | `php` | `^8.2` |
-| `sylius/sylius` | `^1.14 \|\| ^2.2 \|\| ^2.3@alpha` |
+| `ext-intl` | `*` |
+| `sylius/sylius` | `^2.2 \|\| ^2.3@alpha` |
 | `doctrine/orm` | `^2.20 \|\| ^3.6 \|\| ^4.0` |
 | `doctrine/doctrine-bundle` | `^2.13 \|\| ^3.2 \|\| ^4.0` |
-| `doctrine/collections` | `^1.8 \|\| ^2.1` |
-| `symfony/*` (framework packages) | `^6.4 \|\| ^7.4 \|\| ^8.0` |
-| `symfony/deprecation-contracts`, `symfony/service-contracts` | `^2.5 \|\| ^3.0` — contracts version independently of the framework |
-| `twig/twig` | `^3.0` |
-
-Sylius 1.14 is fully supported. The only difference: `sylius_twig_hooks` does not exist there, so the widget is not
-injected automatically — the shop includes it with one line (see [Installation → 6](#6-sylius-114-only--include-the-widget)).
-Tool server, data sources, catalog notifier and `bin/console fluffydiscord:chatbot:notify-all` work the same on both majors.
+| `symfony/*` | `^6.4 \|\| ^7.4 \|\| ^8.0` |
 
 The `@alpha` on `sylius/sylius` is only because 2.3 has no stable tag yet (`v2.3.0-ALPHA.1`); it drops once 2.3 ships stable.
 
@@ -48,9 +42,7 @@ fluffydiscord_sylius_chatbot:
     resource: '@FluffyDiscordSyliusChatbotBundle/config/routes.php'
 ```
 
-The endpoints live under `/chatbot/v1` on the shop host. Import them with **no `prefix:`** and not behind the shop's
-`_locale` prefix: the User-Agent gate and the JSON error envelope both match the literal `/chatbot/v1` path, so a prefixed
-import silently disables both — the routes answer, but unguarded and with the shop's HTML error pages.
+The endpoints live under `/chatbot/v1` on the shop host and must not be behind the shop's `_locale` prefix.
 
 ### 4. Bundle configuration
 
@@ -65,18 +57,13 @@ fluffy_discord_sylius_chatbot:
         enabled: true
         site_key: '%env(CHATBOT_SITE_KEY)%'
         cdn_url: '%env(CHATBOT_WIDGET_CDN_URL)%'
-        channels: []   # channel codes the widget renders on; empty = all of them
 ```
 
 `backend_url` is used by the `backend-url` attribute (the widget's API origin) and the catalog change notifier. `widget.backend_url` still works as a deprecated alias and is used when the root value is empty.
 
-`widget.cdn_url` is the URL the `<script src>` loads `chat.js` from. Set it to the CDN URL the backend publishes the script to; only the script bytes move to the CDN, every API call still goes to `backend_url`. When empty it falls back to `{backend_url}/widget/v1/chat.js` (backend-served).
+`widget.cdn_url` is the URL the `<script src>` loads `chat.js` from — set it to the Bunny CDN URL the backend publishes to via `chatbot:widget:deploy` (it must equal the backend's `BUNNY_CDN_PURGE_URL`). Only the script bytes move to the CDN; every API call still goes to `backend_url`. When empty it falls back to `{backend_url}/widget/v1/chat.js` (backend-served).
 
-`widget.channels` lists the channel codes the widget renders on; `[]` means every channel — and every one of them then
-shares the single `widget.site_key`, so they all talk to the same backend tenant.
-
-`widget.enabled`, the site key, the CDN url and the channel gate are all evaluated at **runtime**, so `%env(...)%` values
-(including `%env(bool:...)%`) work as written.
+`widget.enabled` must be a literal boolean (it decides at compile time whether the widget hook is registered).
 
 `.env`:
 
@@ -115,33 +102,6 @@ security:
 
 The backend authenticates with `Authorization: Bearer <CHATBOT_API_SECRET>`.
 
-`/chatbot/v1` additionally requires `User-Agent: AiChatbot/<version>` — anything else gets
-`403 forbidden_user_agent` before authentication even runs. This is **not configurable**: the bundle and the chatbot
-backend ship as one protocol. It is identification, not authorization — a header is trivially forged, so the Bearer
-secret remains the security boundary; the gate keeps the tool server attributable to one caller. It is also why a
-hand-rolled request gets a 403 — a correct secret is not enough:
-
-```bash
-# 403 {"error":{"code":"forbidden_user_agent",…}} — curl's own User-Agent
-curl -H "Authorization: Bearer $CHATBOT_API_SECRET" https://shop.example/chatbot/v1/tools
-
-# 200
-curl -H "Authorization: Bearer $CHATBOT_API_SECRET" -A 'AiChatbot/1.0' https://shop.example/chatbot/v1/tools
-```
-
-### 6. Sylius 1.14 only — include the widget
-
-Sylius 1 has no twig hooks, so add the widget yourself, once, inside the layout's `javascripts` block:
-
-```twig
-{{ fluffydiscord_chatbot_widget() }}
-```
-
-Everything else — whether it renders at all, the script url, the channel gate, the markup — stays in the bundle. The
-function is **deprecated on purpose**: on Sylius 2 the widget is injected automatically, and the bundle emits one
-deprecation per container build to say so. When you upgrade to Sylius 2, delete this line; leaving it in is harmless
-(the widget renders at most once per request) but pointless.
-
 ## What the bundle exposes
 
 Three independent channels — do not conflate them:
@@ -152,6 +112,23 @@ Three independent channels — do not conflate them:
 
 Tools and sources are HTTP endpoints under `/chatbot/v1` on the shop host. Both use the error envelope
 `{ "error": { "code", "message", "violations" } }`; `violations` is non-empty only for HTTP 422 (`validation_failed`).
+
+### Locales
+
+Every locale the bundle accepts — the `locale` query parameter, the tool call `context.locale`, the `Accept-Language`
+header and `--locale` — must be a locale ICU knows (`symfony/intl`). Spelling does not matter: `cs-CZ`, `cs_cz` and
+`CS-cz` all mean `cs_CZ`. The requested locale is matched against the locales the channel (or the data source) serves,
+first as the same locale and then as the same language, and everything the bundle then queries, renders and announces
+uses **the shop's own full locale code** (`cs_CZ`), never the requested spelling and never a bare language.
+
+What an unusable locale costs differs per endpoint, because each one has somewhere different to fall back to:
+
+| Endpoint | Not an ICU locale | Valid but unserved |
+|---|---|---|
+| `GET /sources/{name}?locale=` | 400 `invalid_locale` | 400 `invalid_locale` |
+| `POST /tools/{name}` (`context.locale`) | 422 `validation_failed` with a `context.locale` violation | falls back to the shop's context locale |
+| `GET /tools` (`Accept-Language`) | 400 `bad_request` | falls back to the shop's context locale |
+| `notify-all --locale` | aborts, nothing announced | aborts, nothing announced |
 
 ## Tools
 
@@ -217,10 +194,9 @@ by the catalog-change notifications below (delta) and by the backend's own full-
 
 **Shipped sources**
 
-- `products` — one document per indexable product **variant** per locale, keyed by the variant code, with `ProductMetadata` (`code, productCode, name, url, imageUrl, priceMinor, currency, inStock, taxons, attributes, options`); `taxons` carries taxon **codes**, the taxon names and the main taxon path live in the document text.
+- `products` — indexable channel products per locale with `ProductMetadata` (`code, name, url, imageUrl, priceMinor, currency, inStock, taxons, attributes`); `taxons` carries taxon **codes**, the taxon names and the main taxon path live in the document text.
 - `categories` — enabled taxons of the channel tree per locale (`code, name, path, url, productCount`). `productCount` counts the taxon's whole nested-set subtree and only products passing `ProductIndexabilityInterface`, so it agrees with the category page (`include_all_descendants: true`) and with what the chatbot can return.
-- `cms_pages` — enabled Monsieur Biz CMS pages per locale (registered only when `monsieurbiz/sylius-cms-page-plugin` is installed).
-- `bitbag_cms_pages` — enabled BitBag CMS pages of the channel per locale (registered only when `bitbag/cms-plugin` is installed); filtered by `enabled` + channel + locale, `publishAt`/`unpublishAt` are deliberately not applied, matching the plugin's own page-show route.
+- `cms_pages` — enabled Monsieur Biz CMS pages per locale (registered only when the plugin is installed).
 
 **Adding a data source** — implement `ChatbotDataSourceInterface` the same way a tool is added; `SourceDefinition::$locales = null` means "all locales of the current channel".
 
@@ -239,20 +215,15 @@ These keep the backend's ingested sources fresh. Saving a `Product`, a `ProductT
 
 A `ProductTranslation` change announces its own locale only, a `TaxonTranslation` change announces `categories` for its own locale, a `Product` change announces every locale of `sylius_locale`, and a `Taxon` change announces `categories` for every locale without fanning out to its products. Every failure is logged as a warning and swallowed — a notification never breaks a shop request. With `backend_url`, `ingest_secret` or `widget.site_key` empty nothing is sent and a warning names the missing key.
 
-`bin/console fluffydiscord:chatbot:notify-all [--source=products|categories] [--locale=cs_CZ] [--channel=code]` re-announces the whole catalog in 500-id batches, pausing 2 s between batches and honouring `Retry-After` on a 429. Pass `--channel` when no channel can be resolved from the CLI context; without `--locale` the locales are taken from the resolved channel, so each channel's catalog is paired with the locales that channel actually serves.
+`bin/console fluffydiscord:chatbot:notify-all [--source=products|categories] [--locale=cs_CZ] [--channel=code]` re-announces the whole catalog in 500-id batches, pausing 2 s between batches and honouring `Retry-After` on a 429. Pass `--channel` when no channel can be resolved from the CLI context; without `--locale` the locales are taken from the resolved channel, so each channel's catalog is paired with the locales that channel actually serves. A `--locale` the source does not serve aborts the run instead of announcing a locale the backend cannot use.
 
 ## Widget
 
-On Sylius 2 the bundle injects this through the `sylius_shop.base#javascripts` twig hook; on Sylius 1 the shop calls
-`{{ fluffydiscord_chatbot_widget() }}` itself (Installation → 6). Both render the same markup, at most once per request:
+When `widget.enabled` is true the bundle injects, via the `sylius_shop.base#javascripts` twig hook:
 
 ```html
-<script src="{widget.cdn_url}" defer></script>
+<script src="{widget_cdn_url}" defer></script>
 <ai-chat-widget site-key="{site_key}" locale="{app.locale}" backend-url="{backend_url}"></ai-chat-widget>
 ```
 
-Nothing renders when `widget.enabled` is false, when the site key or `backend_url` is empty, when no channel can be
-resolved, or when the current channel is outside `widget.channels` — silently, in every case. A channel code that matches
-nothing (typo, renamed channel) therefore looks exactly like "the widget disappeared"; check
-`bin/console debug:container --parameters | grep chatbot` first. `widget.cdn_url` defaults to
-`{backend_url}/widget/v1/chat.js` when unset. The widget talks only to the backend at `backend_url`; it never calls `/chatbot/v1` itself. Tool calls and source ingestion are the backend's job — the widget only renders what the backend streams back.
+`widget_cdn_url` defaults to `{backend_url}/widget/v1/chat.js` when `widget.cdn_url` is unset. The widget talks only to the backend at `backend_url`; it never calls `/chatbot/v1` itself. Tool calls and source ingestion are the backend's job — the widget only renders what the backend streams back.

@@ -26,8 +26,6 @@ use Sylius\Component\Core\Model\ProductVariantInterface;
 use Sylius\Component\Core\Model\Taxon;
 use Sylius\Component\Core\Model\TaxonInterface;
 use Sylius\Component\Taxonomy\Model\TaxonTranslationInterface;
-use FluffyDiscord\SyliusChatbotBundle\Routing\LocalizedUrlGenerator;
-use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouterInterface;
 
 class CategoriesDataSourceTest extends TestCase
@@ -69,7 +67,6 @@ class CategoriesDataSourceTest extends TestCase
         $channelResolver->method('getChannel')->willReturn($channel);
 
         $router = $this->createStub(RouterInterface::class);
-        $router->method('getContext')->willReturn(new RequestContext());
         $router->method('generate')->willReturn('https://shop.example/taxons/clothing/t-shirts');
 
         return new CategoriesDataSource(
@@ -79,7 +76,7 @@ class CategoriesDataSourceTest extends TestCase
             $channelResolver,
             new CursorCodec(),
             new HtmlToText(),
-            new LocalizedUrlGenerator($router),
+            $router,
             new NullLogger(),
         );
     }

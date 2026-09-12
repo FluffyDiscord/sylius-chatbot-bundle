@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace FluffyDiscord\SyliusChatbotBundle\DataSource;
 
-use Doctrine\Common\Collections\Criteria;
+use Doctrine\Common\Collections\Order;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
@@ -18,7 +18,6 @@ use FluffyDiscord\SyliusChatbotBundle\DTO\SourceDocument;
 use FluffyDiscord\SyliusChatbotBundle\DTO\SourceQuery;
 use FluffyDiscord\SyliusChatbotBundle\Enum\CatalogSourceName;
 use FluffyDiscord\SyliusChatbotBundle\Enum\DocumentKind;
-use FluffyDiscord\SyliusChatbotBundle\Routing\LocalizedUrlGenerator;
 use FluffyDiscord\SyliusChatbotBundle\Text\HtmlToText;
 use Psr\Log\LoggerInterface;
 use Sylius\Component\Core\Model\ChannelInterface;
@@ -27,6 +26,8 @@ use Sylius\Component\Core\Repository\ProductRepositoryInterface;
 use Sylius\Component\Taxonomy\Model\TaxonInterface;
 use Sylius\Component\Taxonomy\Repository\TaxonRepositoryInterface;
 use Sylius\Resource\Model\TimestampableInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RouterInterface;
 
 readonly class CategoriesDataSource implements ChatbotDataSourceInterface
 {
@@ -37,7 +38,7 @@ readonly class CategoriesDataSource implements ChatbotDataSourceInterface
         private ChannelResolver              $channelResolver,
         private CursorCodec                  $cursorCodec,
         private HtmlToText                   $htmlToText,
-        private LocalizedUrlGenerator        $localizedUrlGenerator,
+        private RouterInterface              $router,
         private LoggerInterface              $logger,
     ) {
     }
@@ -69,7 +70,7 @@ readonly class CategoriesDataSource implements ChatbotDataSourceInterface
             ->andWhere('taxon.enabled = :enabled')
             ->setParameter('locale', $locale)
             ->setParameter('enabled', true)
-            ->orderBy('taxon.id', Criteria::ASC);
+            ->orderBy('taxon.id', Order::Ascending->value);
 
         $this->restrictToChannelTree($queryBuilder, $channel);
 
@@ -262,10 +263,10 @@ readonly class CategoriesDataSource implements ChatbotDataSourceInterface
             return null;
         }
 
-        $url = $this->localizedUrlGenerator->generateAbsoluteUrl(
+        $url = $this->router->generate(
             $this->getTaxonRouteName(),
-            ['slug' => $slug],
-            $locale,
+            ['slug' => $slug, '_locale' => $locale],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
         $path = $this->buildPath($taxon, $locale);

@@ -25,7 +25,7 @@ readonly class ApiExceptionListener
 
     public function __invoke(ExceptionEvent $event): void
     {
-        $isChatbotRequest = $this->isChatbotPath($event->getRequest()->getPathInfo());
+        $isChatbotRequest = str_starts_with($event->getRequest()->getPathInfo(), $this->getPathPrefix());
         if (!$isChatbotRequest) {
             return;
         }
@@ -56,13 +56,6 @@ readonly class ApiExceptionListener
     private function getPathPrefix(): string
     {
         return '/chatbot/v1';
-    }
-
-    private function isChatbotPath(string $path): bool
-    {
-        $prefix = $this->getPathPrefix();
-
-        return $path === $prefix || str_starts_with($path, $prefix . '/');
     }
 
     private function mapQueryViolations(array $violations): ApiErrorCode

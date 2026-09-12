@@ -22,8 +22,6 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Sylius\Component\Core\Model\ChannelInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use FluffyDiscord\SyliusChatbotBundle\Routing\LocalizedUrlGenerator;
-use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouterInterface;
 
 class CmsPagesDataSourceTest extends TestCase
@@ -66,7 +64,7 @@ class CmsPagesDataSourceTest extends TestCase
             $channelResolver,
             new CursorCodec(),
             $htmlToText ?? new HtmlToText(),
-            new LocalizedUrlGenerator($router),
+            $router,
             $logger ?? new NullLogger(),
         );
     }
@@ -95,7 +93,6 @@ class CmsPagesDataSourceTest extends TestCase
     public function testQueryFiltersUnpublishedAndExpiredPages(): void
     {
         $router = $this->createStub(RouterInterface::class);
-        $router->method('getContext')->willReturn(new RequestContext());
         $router->method('generate')->willReturn('https://shop.example/about-us');
         $dataSource = $this->createDataSource([], $router);
 
@@ -112,7 +109,6 @@ class CmsPagesDataSourceTest extends TestCase
     public function testUrlIsGeneratedWithoutLocaleParameter(): void
     {
         $router = $this->createMock(RouterInterface::class);
-        $router->method('getContext')->willReturn(new RequestContext());
         $router->expects(self::once())
             ->method('generate')
             ->with('monsieurbiz_cms_page_show', ['slug' => 'about-us'], UrlGeneratorInterface::ABSOLUTE_URL)
@@ -133,7 +129,6 @@ class CmsPagesDataSourceTest extends TestCase
     public function testConversionFailureSkipsOnlyTheAffectedDocument(): void
     {
         $router = $this->createStub(RouterInterface::class);
-        $router->method('getContext')->willReturn(new RequestContext());
         $router->method('generate')->willReturn('https://shop.example/page');
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())

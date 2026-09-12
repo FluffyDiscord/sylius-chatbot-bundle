@@ -13,9 +13,14 @@ readonly class ToolCallContext
         #[Assert\Uuid]
         public string $conversationId,
         #[Assert\NotBlank]
-        #[Assert\Regex('/^[a-z]{2,3}(_[A-Z]{2})?$/')]
+        #[Assert\Locale]
         public string $locale,
         public ?string $channelCode = null,
     ) {
+    }
+
+    public function withLocale(string $locale): self
+    {
+        return new self($this->conversationId, $locale, $this->channelCode);
     }
 }

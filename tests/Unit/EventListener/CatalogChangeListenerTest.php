@@ -12,15 +12,13 @@ use FluffyDiscord\SyliusChatbotBundle\Enum\CatalogSourceName;
 use FluffyDiscord\SyliusChatbotBundle\EventListener\CatalogChangeListener;
 use FluffyDiscord\SyliusChatbotBundle\Tests\Unit\Fixtures\RecordingCatalogChangeNotifier;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Sylius\Component\Core\Model\ChannelPricingInterface;
 use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductTranslationInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
 use Sylius\Component\Core\Model\TaxonInterface;
-use Sylius\Component\Locale\Model\LocaleInterface;
-use Sylius\Component\Locale\Provider\LocaleCollectionProviderInterface;
+use Sylius\Component\Locale\Provider\LocaleProviderInterface;
 use Sylius\Component\Taxonomy\Model\TaxonTranslationInterface;
 
 class CatalogChangeListenerTest extends TestCase
@@ -33,29 +31,12 @@ class CatalogChangeListenerTest extends TestCase
         return ['cs_CZ', 'de_AT', 'de_DE', 'en_US', 'hr_HR', 'hu_HU', 'pl_PL', 'ro_RO', 'ru_RU', 'sk_SK', 'sl_SI'];
     }
 
-    /**
-     * @param list<string> $localeCodes
-     *
-     * @return list<LocaleInterface>
-     */
-    private function createLocales(array $localeCodes): array
-    {
-        $locales = [];
-        foreach ($localeCodes as $localeCode) {
-            $locale = $this->createStub(LocaleInterface::class);
-            $locale->method('getCode')->willReturn($localeCode);
-            $locales[] = $locale;
-        }
-
-        return $locales;
-    }
-
     private function createListener(RecordingCatalogChangeNotifier $notifier): CatalogChangeListener
     {
-        $localeCollectionProvider = $this->createStub(LocaleCollectionProviderInterface::class);
-        $localeCollectionProvider->method('getAll')->willReturn($this->createLocales($this->getEveryLocaleCodeInTheDatabase()));
+        $localeProvider = $this->createStub(LocaleProviderInterface::class);
+        $localeProvider->method('getAvailableLocalesCodes')->willReturn($this->getEveryLocaleCodeInTheDatabase());
 
-        return new CatalogChangeListener($notifier, new NullLogger(), $localeCollectionProvider);
+        return new CatalogChangeListener($notifier, new NullLogger(), $localeProvider);
     }
 
     private function createProduct(string $code = 'T-SHIRT-01'): ProductInterface
@@ -227,31 +208,11 @@ class CatalogChangeListenerTest extends TestCase
     {
         $notifier = new RecordingCatalogChangeNotifier();
 
-        $localeCollectionProvider = $this->createStub(LocaleCollectionProviderInterface::class);
-        $localeCollectionProvider->method('getAll')->willThrowException(new \RuntimeException('database gone'));
-        $listener = new CatalogChangeListener($notifier, new NullLogger(), $localeCollectionProvider);
+        $localeProvider = $this->createStub(LocaleProviderInterface::class);
+        $localeProvider->method('getAvailableLocalesCodes')->willThrowException(new \RuntimeException('database gone'));
+        $listener = new CatalogChangeListener($notifier, new NullLogger(), $localeProvider);
 
         $listener->postUpdate($this->createUpdateArgs($this->createProduct()));
-
-        self::assertSame([], $notifier->collectedChanges);
-    }
-
-    public function testNoConfiguredLocalesAnnouncesNothingAndWarnsOnce(): void
-    {
-        $notifier = new RecordingCatalogChangeNotifier();
-
-        $localeCollectionProvider = $this->createStub(LocaleCollectionProviderInterface::class);
-        $localeCollectionProvider->method('getAll')->willReturn([]);
-
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects(self::once())
-            ->method('warning')
-            ->with(self::stringContains('no locales are configured'));
-
-        $listener = new CatalogChangeListener($notifier, $logger, $localeCollectionProvider);
-
-        $listener->postUpdate($this->createUpdateArgs($this->createProduct('FIRST')));
-        $listener->postUpdate($this->createUpdateArgs($this->createProduct('SECOND')));
 
         self::assertSame([], $notifier->collectedChanges);
     }

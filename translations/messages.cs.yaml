@@ -1,7 +1,6 @@
 fluffydiscord_sylius_chatbot:
     error:
         unauthorized: 'Chybějící nebo neplatný API klíč.'
-        forbidden_user_agent: 'Tento endpoint obsluhuje pouze chatbot backend.'
         tool_not_found: 'Požadovaný nástroj neexistuje.'
         source_not_found: 'Požadovaný datový zdroj neexistuje.'
         validation_failed: 'Požadavek není platný.'
@@ -36,8 +35,6 @@ fluffydiscord_sylius_chatbot:
             description: 'Aktivní kategorie produktů prodejního kanálu včetně cesty kategorií a popisu.'
         cms_pages:
             description: 'Publikované CMS stránky obchodu.'
-        bitbag_cms_pages:
-            description: 'Publikované CMS stránky obchodu (BitBag).'
     attribute_value:
         'yes': 'ano'
         'no': 'ne'

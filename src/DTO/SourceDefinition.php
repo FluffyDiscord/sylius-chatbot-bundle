@@ -8,11 +8,18 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 readonly class SourceDefinition implements \JsonSerializable
 {
+    /** @var ?list<string> */
+    public ?array $locales;
+
+    /**
+     * @param ?list<string> $locales
+     */
     public function __construct(
         public string $name,
         public string $description,
-        public ?array $locales = null,
+        ?array $locales = null,
     ) {
+        $this->locales = $locales === [] ? null : $locales;
     }
 
     public function withLocales(array $locales): self

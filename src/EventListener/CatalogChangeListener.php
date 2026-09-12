@@ -13,34 +13,26 @@ use FluffyDiscord\SyliusChatbotBundle\Enum\CatalogSourceName;
 use FluffyDiscord\SyliusChatbotBundle\Ingest\CatalogChangeNotifier;
 use Psr\Log\LoggerInterface;
 use Sylius\Component\Core\Model\ChannelPricingInterface;
-use Sylius\Component\Locale\Provider\LocaleCollectionProviderInterface;
+use Sylius\Component\Locale\Provider\LocaleProviderInterface;
 use Sylius\Component\Product\Model\ProductInterface;
 use Sylius\Component\Product\Model\ProductTranslationInterface;
 use Sylius\Component\Product\Model\ProductVariantInterface;
 use Sylius\Component\Taxonomy\Model\TaxonInterface;
 use Sylius\Component\Taxonomy\Model\TaxonTranslationInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Contracts\Service\ResetInterface;
 
 #[AsDoctrineListener(event: Events::postPersist)]
 #[AsDoctrineListener(event: Events::postUpdate)]
 #[AsDoctrineListener(event: Events::postRemove)]
-class CatalogChangeListener implements ResetInterface
+readonly class CatalogChangeListener
 {
-    private bool $hasWarnedAboutMissingLocales = false;
-
     public function __construct(
-        private readonly CatalogChangeNotifier $catalogChangeNotifier,
-        private readonly LoggerInterface       $logger,
+        private CatalogChangeNotifier $catalogChangeNotifier,
+        private LoggerInterface       $logger,
 
-        #[Autowire(service: 'sylius.provider.locale_collection')]
-        private readonly LocaleCollectionProviderInterface $localeCollectionProvider,
+        #[Autowire(service: 'sylius.provider.locale.channel_based.inner')]
+        private LocaleProviderInterface $localeProvider,
     ) {
-    }
-
-    public function reset(): void
-    {
-        $this->hasWarnedAboutMissingLocales = false;
     }
 
     public function postPersist(PostPersistEventArgs $args): void
@@ -125,7 +117,7 @@ class CatalogChangeListener implements ResetInterface
             return;
         }
 
-        foreach ($this->getLocaleCodes() as $locale) {
+        foreach ($this->localeProvider->getAvailableLocalesCodes() as $locale) {
             $this->catalogChangeNotifier->collect(CatalogSourceName::Products, $locale, $code);
         }
     }
@@ -171,7 +163,7 @@ class CatalogChangeListener implements ResetInterface
     {
         $variantCodes = $this->readVariantCodes($product);
 
-        foreach ($this->getLocaleCodes() as $locale) {
+        foreach ($this->localeProvider->getAvailableLocalesCodes() as $locale) {
             foreach ($variantCodes as $variantCode) {
                 $this->catalogChangeNotifier->collect(CatalogSourceName::Products, $locale, $variantCode);
             }
@@ -203,32 +195,8 @@ class CatalogChangeListener implements ResetInterface
             return;
         }
 
-        foreach ($this->getLocaleCodes() as $locale) {
+        foreach ($this->localeProvider->getAvailableLocalesCodes() as $locale) {
             $this->catalogChangeNotifier->collect(CatalogSourceName::Categories, $locale, $code);
         }
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function getLocaleCodes(): array
-    {
-        $codes = [];
-
-        foreach ($this->localeCollectionProvider->getAll() as $locale) {
-            $code = $locale->getCode();
-
-            if ($code !== null && $code !== '') {
-                $codes[] = $code;
-            }
-        }
-
-        $isFirstMissingLocalesWarning = $codes === [] && !$this->hasWarnedAboutMissingLocales;
-        if ($isFirstMissingLocalesWarning) {
-            $this->hasWarnedAboutMissingLocales = true;
-            $this->logger->warning('Chatbot: no locales are configured, nothing announced.');
-        }
-
-        return $codes;
     }
 }

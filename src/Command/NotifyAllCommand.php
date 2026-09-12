@@ -9,44 +9,38 @@ use FluffyDiscord\SyliusChatbotBundle\Contract\ChatbotDataSourceInterface;
 use FluffyDiscord\SyliusChatbotBundle\DTO\SourceQuery;
 use FluffyDiscord\SyliusChatbotBundle\Enum\CatalogSourceName;
 use FluffyDiscord\SyliusChatbotBundle\Exception\InvalidChannelException;
+use FluffyDiscord\SyliusChatbotBundle\Exception\InvalidLocaleException;
 use FluffyDiscord\SyliusChatbotBundle\Ingest\CatalogChangeNotifier;
+use FluffyDiscord\SyliusChatbotBundle\Locale\ShopLocaleResolver;
 use FluffyDiscord\SyliusChatbotBundle\Registry\DataSourceRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'fluffydiscord:chatbot:notify-all',
     description: 'Re-notifies the chatbot backend about every catalog document of every served locale.',
 )]
-class NotifyAllCommand extends Command
+readonly class NotifyAllCommand
 {
     public function __construct(
-        private readonly DataSourceRegistry    $dataSourceRegistry,
-        private readonly CatalogChangeNotifier $catalogChangeNotifier,
-        private readonly ChannelResolver       $channelResolver,
+        private DataSourceRegistry    $dataSourceRegistry,
+        private CatalogChangeNotifier $catalogChangeNotifier,
+        private ChannelResolver       $channelResolver,
+        private ShopLocaleResolver    $localeResolver,
     ) {
-        parent::__construct();
     }
 
-    protected function configure(): void
-    {
-        $this
-            ->addOption('source', null, InputOption::VALUE_REQUIRED, 'Only this catalog source (products, categories).')
-            ->addOption('locale', null, InputOption::VALUE_REQUIRED, 'Only this locale code.')
-            ->addOption('channel', null, InputOption::VALUE_REQUIRED, 'Channel code to read the catalog for; defaults to the context channel.');
-    }
-
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
-        $io = new SymfonyStyle($input, $output);
-        $source = $this->readOption($input, 'source');
-        $locale = $this->readOption($input, 'locale');
-        $channel = $this->readOption($input, 'channel');
-
+    public function __invoke(
+        SymfonyStyle $io,
+        #[Option(description: 'Only this catalog source (products, categories).')]
+        ?string $source = null,
+        #[Option(description: 'Only this locale code.')]
+        ?string $locale = null,
+        #[Option(description: 'Channel code to read the catalog for; defaults to the context channel.')]
+        ?string $channel = null,
+    ): int {
         $sources = $this->resolveSources($source);
         if ($sources === []) {
             $io->error(sprintf('Unknown catalog source "%s".', (string) $source));
@@ -67,7 +61,8 @@ class NotifyAllCommand extends Command
         $this->channelResolver->setOverrideCode($channel);
 
         try {
-            $failedBatchCount = $this->notifySources($io, $sources, $locale);
+            $requestedLocale = $this->resolveRequestedLocale($locale);
+            $failedBatchCount = $this->notifySources($io, $sources, $requestedLocale);
         } catch (InvalidChannelException $exception) {
             $io->error(sprintf(
                 'No channel could be resolved (%s). Pass --channel=<code> when running outside a web request.',
@@ -75,6 +70,10 @@ class NotifyAllCommand extends Command
             ));
 
             return Command::FAILURE;
+        } catch (InvalidLocaleException $exception) {
+            $io->error($exception->getMessage());
+
+            return Command::INVALID;
         }
 
         if ($failedBatchCount > 0) {
@@ -86,13 +85,6 @@ class NotifyAllCommand extends Command
         $io->success('The whole catalog was announced to the chatbot backend.');
 
         return Command::SUCCESS;
-    }
-
-    private function readOption(InputInterface $input, string $name): ?string
-    {
-        $value = $input->getOption($name);
-
-        return is_string($value) ? $value : null;
     }
 
     private function getBatchPauseSeconds(): int
@@ -216,31 +208,26 @@ class NotifyAllCommand extends Command
      */
     private function resolveLocales(ChatbotDataSourceInterface $dataSource, ?string $locale): array
     {
-        if ($locale !== null && $locale !== '') {
+        if ($locale !== null) {
             return [$locale];
         }
 
         $definitionLocales = $dataSource->getDefinition()->locales;
-        if ($definitionLocales !== null && $definitionLocales !== []) {
-            return array_values($definitionLocales);
-        }
 
-        return $this->resolveChannelLocales();
+        return array_values($definitionLocales ?? $this->localeResolver->getChannelLocales());
     }
 
     /**
-     * @return list<string>
+     * @throws InvalidLocaleException
      */
-    private function resolveChannelLocales(): array
+    private function resolveRequestedLocale(?string $locale): ?string
     {
-        $locales = [];
-        foreach ($this->channelResolver->getChannel()->getLocales() as $channelLocale) {
-            $localeCode = $channelLocale->getCode();
-            if ($localeCode !== null && $localeCode !== '') {
-                $locales[] = $localeCode;
-            }
+        if ($locale === null || $locale === '') {
+            return null;
         }
 
-        return $locales;
+        $channelLocales = $this->localeResolver->getChannelLocales();
+
+        return $this->localeResolver->resolveServedLocaleOrFail($locale, $channelLocales);
     }
 }
