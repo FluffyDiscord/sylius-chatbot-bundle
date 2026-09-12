@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace FluffyDiscord\SyliusChatbotBundle;
 
 use MonsieurBiz\SyliusCmsPagePlugin\Entity\Page;
+use Sylius\Bundle\UiBundle\Registry\TemplateBlock;
 use FluffyDiscord\SyliusChatbotBundle\DataSource\CmsPagesDataSource;
 use FluffyDiscord\SyliusChatbotBundle\DependencyInjection\Compiler\ChatbotDefinitionNamePass;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
-use Symfony\Component\Yaml\Yaml;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
@@ -51,25 +51,29 @@ class FluffyDiscordSyliusChatbotBundle extends AbstractBundle
 
     public function prependExtension(ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $hasTwigHooks = $container->hasExtension('sylius_twig_hooks');
-        if (!$hasTwigHooks) {
-            return;
-        }
-
         $rawConfig = $this->mergeRawConfig($container);
         if ($rawConfig['widget']['enabled'] === false) {
             return;
         }
 
         $backendUrl = $this->resolveBackendUrl($rawConfig);
-        $twigHooksConfig = Yaml::parseFile(__DIR__ . '/../config/twig_hooks.yaml')['sylius_twig_hooks'];
-        $twigHooksConfig['hooks']['sylius_shop.base#javascripts']['fluffydiscord_chatbot_widget']['context'] = [
+        $widgetContext = [
             'backend_url' => $backendUrl,
             'site_key' => $rawConfig['widget']['site_key'],
             'widget_cdn_url' => $this->resolveWidgetCdnUrl($rawConfig, $backendUrl),
         ];
 
-        $container->prependExtensionConfig('sylius_twig_hooks', $twigHooksConfig);
+        $hasTwigHooks = $container->hasExtension('sylius_twig_hooks');
+        if ($hasTwigHooks) {
+            $this->prependWidgetHook($container, $widgetContext);
+
+            return;
+        }
+
+        $hasTemplateEvents = $this->hasTemplateEvents($container);
+        if ($hasTemplateEvents) {
+            $this->prependWidgetTemplateBlock($container, $widgetContext);
+        }
     }
 
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
@@ -94,6 +98,60 @@ class FluffyDiscordSyliusChatbotBundle extends AbstractBundle
                 ->autoconfigure()
                 ->arg('$pageRepository', service('monsieurbiz_cms_page.repository.page'));
         }
+    }
+
+    /**
+     * @param array<string, string> $widgetContext
+     */
+    private function prependWidgetHook(ContainerBuilder $container, array $widgetContext): void
+    {
+        $container->prependExtensionConfig('sylius_twig_hooks', [
+            'hooks' => [
+                'sylius_shop.base#javascripts' => [
+                    'fluffydiscord_chatbot_widget' => [
+                        'template' => $this->getWidgetTemplate(),
+                        'priority' => 0,
+                        'context' => $widgetContext,
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function hasTemplateEvents(ContainerBuilder $container): bool
+    {
+        $hasUiExtension = $container->hasExtension('sylius_ui');
+
+        if (!$hasUiExtension) {
+            return false;
+        }
+
+        return class_exists(TemplateBlock::class);
+    }
+
+    /**
+     * @param array<string, string> $widgetContext
+     */
+    private function prependWidgetTemplateBlock(ContainerBuilder $container, array $widgetContext): void
+    {
+        $container->prependExtensionConfig('sylius_ui', [
+            'events' => [
+                'sylius.shop.layout.javascripts' => [
+                    'blocks' => [
+                        'fluffydiscord_chatbot_widget' => [
+                            'template' => $this->getWidgetTemplate(),
+                            'priority' => 0,
+                            'context' => $widgetContext,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function getWidgetTemplate(): string
+    {
+        return '@FluffyDiscordSyliusChatbot/shop/widget.html.twig';
     }
 
     private function getConfigAlias(): string

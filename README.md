@@ -2,7 +2,7 @@
 
 Exposes a small authenticated HTTP tool server (`/chatbot/v1`) for an external AI chatbot backend and embeds the chat widget into the Sylius shop layout.
 
-Requires PHP `^8.2` and Sylius `^2.2 || ^2.3`.
+Requires PHP `^8.2` and Sylius `^1.14 || ^2.2 || ^2.3`.
 
 ## Requirements
 
@@ -10,12 +10,14 @@ Requires PHP `^8.2` and Sylius `^2.2 || ^2.3`.
 |---|---|
 | `php` | `^8.2` |
 | `ext-intl` | `*` |
-| `sylius/sylius` | `^2.2 \|\| ^2.3@alpha` |
+| `sylius/sylius` | `^1.14 \|\| ^2.2 \|\| ^2.3@alpha` |
 | `doctrine/orm` | `^2.20 \|\| ^3.6 \|\| ^4.0` |
 | `doctrine/doctrine-bundle` | `^2.13 \|\| ^3.2 \|\| ^4.0` |
 | `symfony/*` | `^6.4 \|\| ^7.4 \|\| ^8.0` |
 
 The `@alpha` on `sylius/sylius` is only because 2.3 has no stable tag yet (`v2.3.0-ALPHA.1`); it drops once 2.3 ships stable.
+
+On Sylius 1.14 the shop runs on Symfony 6.4 and has no Twig Hooks, so the widget is registered as a `sylius_ui` template block on `sylius.shop.layout.javascripts` instead. That is the only mechanism 1.14 offers and Sylius deprecated it in the same release, so the container build reports `sylius/ui-bundle` deprecations for it — expected, not a bug. Everything else — endpoints, data sources, catalog notifications — is identical on both lines.
 
 ## Installation
 
@@ -219,7 +221,7 @@ A `ProductTranslation` change announces its own locale only, a `TaxonTranslation
 
 ## Widget
 
-When `widget.enabled` is true the bundle injects, via the `sylius_shop.base#javascripts` twig hook:
+When `widget.enabled` is true the bundle injects, via the `sylius_shop.base#javascripts` twig hook on Sylius 2 and the `sylius.shop.layout.javascripts` template block on Sylius 1.14:
 
 ```html
 <script src="{widget_cdn_url}" defer></script>

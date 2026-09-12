@@ -1,6 +1,6 @@
 {
     "name": "fluffydiscord/sylius-chatbot-bundle",
-    "description": "Chatbot tool server endpoints, data sources and widget embed for Sylius 2.x shops",
+    "description": "Chatbot tool server endpoints, data sources and widget embed for Sylius 1.14 and 2.x shops",
     "type": "symfony-bundle",
     "license": "proprietary",
     "require": {
@@ -9,7 +9,7 @@
         "doctrine/doctrine-bundle": "^2.13 || ^3.2 || ^4.0",
         "doctrine/orm": "^2.20 || ^3.6 || ^4.0",
         "liip/imagine-bundle": "^2.13",
-        "sylius/sylius": "^2.2 || ^2.3@alpha",
+        "sylius/sylius": "^1.14 || ^2.2 || ^2.3@alpha",
         "symfony/config": "^6.4 || ^7.4 || ^8.0",
         "symfony/console": "^6.4 || ^7.4 || ^8.0",
         "symfony/dependency-injection": "^6.4 || ^7.4 || ^8.0",
@@ -24,8 +24,7 @@
         "symfony/security-http": "^6.4 || ^7.4 || ^8.0",
         "symfony/serializer": "^6.4 || ^7.4 || ^8.0",
         "symfony/translation": "^6.4 || ^7.4 || ^8.0",
-        "symfony/validator": "^6.4 || ^7.4 || ^8.0",
-        "symfony/yaml": "^6.4 || ^7.4 || ^8.0"
+        "symfony/validator": "^6.4 || ^7.4 || ^8.0"
     },
     "require-dev": {
         "monsieurbiz/sylius-cms-page-plugin": "^2.2",

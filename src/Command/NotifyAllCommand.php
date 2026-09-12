@@ -14,31 +14,49 @@ use FluffyDiscord\SyliusChatbotBundle\Ingest\CatalogChangeNotifier;
 use FluffyDiscord\SyliusChatbotBundle\Locale\ShopLocaleResolver;
 use FluffyDiscord\SyliusChatbotBundle\Registry\DataSourceRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
-use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'fluffydiscord:chatbot:notify-all',
     description: 'Re-notifies the chatbot backend about every catalog document of every served locale.',
 )]
-readonly class NotifyAllCommand
+class NotifyAllCommand extends Command
 {
     public function __construct(
-        private DataSourceRegistry    $dataSourceRegistry,
-        private CatalogChangeNotifier $catalogChangeNotifier,
-        private ChannelResolver       $channelResolver,
-        private ShopLocaleResolver    $localeResolver,
+        private readonly DataSourceRegistry    $dataSourceRegistry,
+        private readonly CatalogChangeNotifier $catalogChangeNotifier,
+        private readonly ChannelResolver       $channelResolver,
+        private readonly ShopLocaleResolver    $localeResolver,
     ) {
+        parent::__construct();
+    }
+
+    protected function configure(): void
+    {
+        $this
+            ->addOption('source', null, InputOption::VALUE_REQUIRED, 'Only this catalog source (products, categories).')
+            ->addOption('locale', null, InputOption::VALUE_REQUIRED, 'Only this locale code.')
+            ->addOption('channel', null, InputOption::VALUE_REQUIRED, 'Channel code to read the catalog for; defaults to the context channel.');
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        return $this->__invoke(
+            new SymfonyStyle($input, $output),
+            $input->getOption('source'),
+            $input->getOption('locale'),
+            $input->getOption('channel'),
+        );
     }
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Option(description: 'Only this catalog source (products, categories).')]
         ?string $source = null,
-        #[Option(description: 'Only this locale code.')]
         ?string $locale = null,
-        #[Option(description: 'Channel code to read the catalog for; defaults to the context channel.')]
         ?string $channel = null,
     ): int {
         $sources = $this->resolveSources($source);

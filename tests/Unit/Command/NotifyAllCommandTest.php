@@ -19,6 +19,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 
 class NotifyAllCommandTest extends TestCase
@@ -80,6 +81,27 @@ class NotifyAllCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertSame(['en_US'], $source->queriedLocales);
+    }
+
+    public function testTheConsoleOptionsReachTheAnnouncing(): void
+    {
+        $source = new RecordingDataSource('products');
+        $command = $this->createCommand($source, ['cs_CZ', 'en_US']);
+        $tester = new CommandTester($command);
+
+        $exitCode = $tester->execute(['--source' => 'products', '--locale' => 'cs']);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['cs_CZ'], $source->queriedLocales);
+    }
+
+    public function testTheDocumentedOptionsAreDeclared(): void
+    {
+        $command = $this->createCommand(new RecordingDataSource('products'), ['cs_CZ']);
+
+        $options = $command->getDefinition()->getOptions();
+
+        self::assertSame(['source', 'locale', 'channel'], array_keys($options));
     }
 
     /**

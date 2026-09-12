@@ -13,7 +13,7 @@ use FluffyDiscord\SyliusChatbotBundle\Enum\CatalogSourceName;
 use FluffyDiscord\SyliusChatbotBundle\Ingest\CatalogChangeNotifier;
 use Psr\Log\LoggerInterface;
 use Sylius\Component\Core\Model\ChannelPricingInterface;
-use Sylius\Component\Locale\Provider\LocaleProviderInterface;
+use Sylius\Component\Locale\Provider\LocaleCollectionProviderInterface;
 use Sylius\Component\Product\Model\ProductInterface;
 use Sylius\Component\Product\Model\ProductTranslationInterface;
 use Sylius\Component\Product\Model\ProductVariantInterface;
@@ -30,8 +30,8 @@ readonly class CatalogChangeListener
         private CatalogChangeNotifier $catalogChangeNotifier,
         private LoggerInterface       $logger,
 
-        #[Autowire(service: 'sylius.provider.locale.channel_based.inner')]
-        private LocaleProviderInterface $localeProvider,
+        #[Autowire(service: 'sylius.provider.locale_collection')]
+        private LocaleCollectionProviderInterface $localeCollectionProvider,
     ) {
     }
 
@@ -117,7 +117,7 @@ readonly class CatalogChangeListener
             return;
         }
 
-        foreach ($this->localeProvider->getAvailableLocalesCodes() as $locale) {
+        foreach ($this->getAllLocaleCodes() as $locale) {
             $this->catalogChangeNotifier->collect(CatalogSourceName::Products, $locale, $code);
         }
     }
@@ -163,7 +163,7 @@ readonly class CatalogChangeListener
     {
         $variantCodes = $this->readVariantCodes($product);
 
-        foreach ($this->localeProvider->getAvailableLocalesCodes() as $locale) {
+        foreach ($this->getAllLocaleCodes() as $locale) {
             foreach ($variantCodes as $variantCode) {
                 $this->catalogChangeNotifier->collect(CatalogSourceName::Products, $locale, $variantCode);
             }
@@ -195,8 +195,26 @@ readonly class CatalogChangeListener
             return;
         }
 
-        foreach ($this->localeProvider->getAvailableLocalesCodes() as $locale) {
+        foreach ($this->getAllLocaleCodes() as $locale) {
             $this->catalogChangeNotifier->collect(CatalogSourceName::Categories, $locale, $code);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function getAllLocaleCodes(): array
+    {
+        $codes = [];
+
+        foreach ($this->localeCollectionProvider->getAll() as $locale) {
+            $code = $locale->getCode();
+
+            if ($code !== null && $code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
     }
 }

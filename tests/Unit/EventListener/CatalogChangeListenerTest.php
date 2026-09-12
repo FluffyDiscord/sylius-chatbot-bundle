@@ -18,7 +18,8 @@ use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductTranslationInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
 use Sylius\Component\Core\Model\TaxonInterface;
-use Sylius\Component\Locale\Provider\LocaleProviderInterface;
+use Sylius\Component\Locale\Model\Locale;
+use Sylius\Component\Locale\Provider\LocaleCollectionProviderInterface;
 use Sylius\Component\Taxonomy\Model\TaxonTranslationInterface;
 
 class CatalogChangeListenerTest extends TestCase
@@ -33,10 +34,28 @@ class CatalogChangeListenerTest extends TestCase
 
     private function createListener(RecordingCatalogChangeNotifier $notifier): CatalogChangeListener
     {
-        $localeProvider = $this->createStub(LocaleProviderInterface::class);
-        $localeProvider->method('getAvailableLocalesCodes')->willReturn($this->getEveryLocaleCodeInTheDatabase());
+        $localeCollectionProvider = $this->createStub(LocaleCollectionProviderInterface::class);
+        $localeCollectionProvider->method('getAll')->willReturn($this->createLocales($this->getEveryLocaleCodeInTheDatabase()));
 
-        return new CatalogChangeListener($notifier, new NullLogger(), $localeProvider);
+        return new CatalogChangeListener($notifier, new NullLogger(), $localeCollectionProvider);
+    }
+
+    /**
+     * @param list<string> $codes
+     *
+     * @return list<Locale>
+     */
+    private function createLocales(array $codes): array
+    {
+        $locales = [];
+
+        foreach ($codes as $code) {
+            $locale = new Locale();
+            $locale->setCode($code);
+            $locales[] = $locale;
+        }
+
+        return $locales;
     }
 
     private function createProduct(string $code = 'T-SHIRT-01'): ProductInterface
@@ -208,9 +227,9 @@ class CatalogChangeListenerTest extends TestCase
     {
         $notifier = new RecordingCatalogChangeNotifier();
 
-        $localeProvider = $this->createStub(LocaleProviderInterface::class);
-        $localeProvider->method('getAvailableLocalesCodes')->willThrowException(new \RuntimeException('database gone'));
-        $listener = new CatalogChangeListener($notifier, new NullLogger(), $localeProvider);
+        $localeCollectionProvider = $this->createStub(LocaleCollectionProviderInterface::class);
+        $localeCollectionProvider->method('getAll')->willThrowException(new \RuntimeException('database gone'));
+        $listener = new CatalogChangeListener($notifier, new NullLogger(), $localeCollectionProvider);
 
         $listener->postUpdate($this->createUpdateArgs($this->createProduct()));
 
